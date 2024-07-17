@@ -2,6 +2,7 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.sql.*;
 
 public class CustomerViewer extends JFrame implements ActionListener {
 
@@ -9,12 +10,10 @@ public class CustomerViewer extends JFrame implements ActionListener {
     private JButton prevButton, nextButton;
 
     private int currentIndex = 0;
+    private Customer[] customers;
+    private int totalCustomers;
 
-    private String[][] customers = {
-            {"1", "Chenda", "Sovisal", "092888999"},
-            {"2", "Kom", "Lina", "092008999"},
-            {"3", "Chan", "Seyha", "092777666"}
-    };
+    record Customer(int customerId, String lastName, String firstName, String phone) {}
 
     public CustomerViewer() {
         setTitle("Customer");
@@ -70,6 +69,7 @@ public class CustomerViewer extends JFrame implements ActionListener {
         gbc.gridx = 1;
         add(nextButton, gbc);
 
+        loadCustomers();
         displayCustomer(currentIndex);
 
         setSize(300, 200);
@@ -81,14 +81,59 @@ public class CustomerViewer extends JFrame implements ActionListener {
         new CustomerViewer();
     }
 
+    private void loadCustomers() {
+        Connection connection = null;
+        Statement statement = null;
+        ResultSet resultSet = null;
+
+        try {
+            String url = "jdbc:postgresql://localhost:5432/TestingDB";
+            String user = "postgres";
+            String password = "helen15121512";
+
+            Class.forName("org.postgresql.Driver");
+            connection = DriverManager.getConnection(url, user, password);
+
+            statement = connection.createStatement();
+            resultSet = statement.executeQuery("SELECT * FROM customers");
+
+            resultSet.last();
+            totalCustomers = resultSet.getRow();
+            customers = new Customer[totalCustomers];
+            resultSet.beforeFirst();
+
+            int index = 0;
+            while (resultSet.next()) {
+                int customerId = resultSet.getInt("customer_id");
+                String lastName = resultSet.getString("customer_last_name");
+                String firstName = resultSet.getString("customer_first_name");
+                String phone = resultSet.getString("customer_phone");
+                customers[index++] = new Customer(customerId, lastName, firstName, phone);
+            }
+
+        } catch (SQLException | ClassNotFoundException e) {
+            JOptionPane.showMessageDialog(this, "Error loading customer data: " + e.getMessage());
+            e.printStackTrace();
+        } finally {
+            try {
+                if (resultSet != null) resultSet.close();
+                if (statement != null) statement.close();
+                if (connection != null) connection.close();
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
     private void displayCustomer(int index) {
         if (index < 0 || index >= customers.length) {
             return;
         }
-        idLabel.setText(customers[index][0]);
-        lastNameLabel.setText(customers[index][1]);
-        firstNameLabel.setText(customers[index][2]);
-        phoneLabel.setText(customers[index][3]);
+        Customer customer = customers[index];
+        idLabel.setText(String.valueOf(customer.customerId()));
+        lastNameLabel.setText(customer.lastName());
+        firstNameLabel.setText(customer.firstName());
+        phoneLabel.setText(customer.phone());
 
         prevButton.setEnabled(index > 0);
         nextButton.setEnabled(index < customers.length - 1);
